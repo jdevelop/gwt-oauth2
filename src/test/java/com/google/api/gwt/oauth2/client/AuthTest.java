@@ -155,7 +155,7 @@ public class AuthTest extends TestCase {
     // That token is clientId+scope -> foo+expires
     TokenInfo info = TokenInfo.fromString(ts.store.get("clientId-----scope"));
     assertEquals("foo", info.accessToken);
-    assertEquals("1.0005E7", info.expires);
+    assertEquals("1.0016E7", info.expires);
   }
 
   /**
