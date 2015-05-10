@@ -1,0 +1,6 @@
+language: java
+script: "mvn test"
+notifications:
+    email:
+        recipients:
+            - jdevelop@gmail.com
