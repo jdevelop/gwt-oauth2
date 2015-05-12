@@ -28,6 +28,5 @@ public class ScriptEntryPoint implements EntryPoint {
 
   @Override
   public void onModuleLoad() {
-    Auth.export();
   }
 }

@@ -16,7 +16,6 @@
 
 package com.google.api.gwt.oauth2.client;
 
-import com.google.api.gwt.oauth2.client.Auth.TokenInfo;
 import com.google.gwt.core.client.Callback;
 import com.google.gwt.core.client.Scheduler.ScheduledCommand;
 import com.google.gwt.core.client.testing.StubScheduler;
@@ -65,7 +64,7 @@ public class AuthTest extends TestCase {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
 
     // Storing a token that expires soon (in just under 10 minutes)
-    TokenInfo info = new TokenInfo();
+    OAuthResponseParser.TokenInfo info = new OAuthResponseParser.TokenInfo();
     info.accessToken = "expired";
     info.expires = String.valueOf(MockClock.now + 10 * 60 * 1000 - 1);
     auth.setToken(req, info);
@@ -88,7 +87,7 @@ public class AuthTest extends TestCase {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
 
     // Storing a token that does not expire soon (in exactly 10 minutes)
-    TokenInfo info = new TokenInfo();
+    OAuthResponseParser.TokenInfo info = new OAuthResponseParser.TokenInfo();
     info.accessToken = "notExpiringSoon";
     info.expires = String.valueOf(MockClock.now + 10 * 60 * 1000);
     auth.setToken(req, info);
@@ -117,7 +116,7 @@ public class AuthTest extends TestCase {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
 
     // Storing a token with a null expires time
-    TokenInfo info = new TokenInfo();
+    OAuthResponseParser.TokenInfo info = new OAuthResponseParser.TokenInfo();
     info.accessToken = "longToken";
     info.expires = null;
     auth.setToken(req, info);
@@ -142,7 +141,7 @@ public class AuthTest extends TestCase {
     auth.login(req, callback);
 
     // Simulates the auth provider's response
-    auth.finish("#access_token=foo&expires_in=10000");
+    auth.finish("#access_token=foo&expires_in=10000", "");
 
     // onSuccess() was called and onFailure() wasn't
     assertEquals("foo", callback.token);
@@ -153,7 +152,7 @@ public class AuthTest extends TestCase {
     assertEquals(1, ts.store.size());
 
     // That token is clientId+scope -> foo+expires
-    TokenInfo info = TokenInfo.fromString(ts.store.get("clientId-----scope"));
+    OAuthResponseParser.TokenInfo info = OAuthResponseParser.TokenInfo.fromString(ts.store.get("clientId-----scope"));
     assertEquals("foo", info.accessToken);
     assertEquals("1.0016E7", info.expires);
   }
@@ -168,7 +167,7 @@ public class AuthTest extends TestCase {
     auth.login(req, callback);
 
     // Simulates the auth provider's response
-    auth.finish("#foobarbaznonsense");
+    auth.finish("#foobarbaznonsense", "omgwtf");
 
     // onFailure() was called with a RuntimeException stating the error.
     assertNotNull(callback.failure);
@@ -191,7 +190,7 @@ public class AuthTest extends TestCase {
     auth.login(req, callback);
 
     // Simulates the auth provider's response
-    auth.finish("#access_token=foo");
+    auth.finish("#access_token=foo", "oops");
 
     // onSuccess() was called and onFailure() wasn't
     assertEquals("foo", callback.token);
@@ -202,7 +201,7 @@ public class AuthTest extends TestCase {
     assertEquals(1, ts.store.size());
 
     // That token is clientId+scope -> foo+expires
-    TokenInfo info = TokenInfo.fromString(ts.store.get("clientId-----scope"));
+    OAuthResponseParser.TokenInfo info = OAuthResponseParser.TokenInfo.fromString(ts.store.get("clientId-----scope"));
     assertEquals("foo", info.accessToken);
     assertNull(info.expires);
   }
@@ -244,7 +243,7 @@ public class AuthTest extends TestCase {
 
   private void assertError(MockCallback callback, String hash, String error) {
     // Simulates the auth provider's error response.
-    auth.finish(hash);
+    auth.finish(hash, "nothing");
 
     // onFailure() was called with a RuntimeException stating the error.
     assertNotNull(callback.failure);
@@ -260,7 +259,7 @@ public class AuthTest extends TestCase {
     auth.login(req, new MockCallback());
 
     // Simulates the auth provider's response (expires in 10s)
-    auth.finish("#access_token=foo&expires_in=10");
+    auth.finish("#access_token=foo&expires_in=10", "");
 
     MockClock.now += 1000; // Fast forward 1s
     assertEquals(9000.0, auth.expiresIn(req));

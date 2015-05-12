@@ -60,8 +60,8 @@ class AuthImpl extends Auth {
     if (!$wnd.oauth2) {
       $wnd.oauth2 = {};
     }
-    $wnd.oauth2.__doLogin = $entry(function(hash) {
-      self.@com.google.api.gwt.oauth2.client.Auth::finish(Ljava/lang/String;)(hash);
+    $wnd.oauth2.__doLogin = $entry(function(hash, uri) {
+      self.@com.google.api.gwt.oauth2.client.Auth::finish(Ljava/lang/String;Ljava/lang/String;)(hash, uri);
     });
   }-*/;
 
@@ -83,12 +83,12 @@ class AuthImpl extends Auth {
   }
 
   @Override
-  void finish(String hash) {
+  void finish(String hash, String queryString) {
     // Clean up the popup
     if (window != null && window.isOpen()) {
       window.close();
     }
-    super.finish(hash);
+    super.finish(hash, queryString);
   }
 
   // Because GWT's Window.open() method does not return a reference to the

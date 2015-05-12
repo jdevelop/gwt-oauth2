@@ -26,6 +26,7 @@ public class AuthRequest {
   private final String clientId;
   private String[] scopes;
   private String scopeDelimiter = " ";
+  private String tokenType = "token";
 
   /**
    * @param authUrl URL of the OAuth 2.0 provider server
@@ -57,6 +58,11 @@ public class AuthRequest {
     return this;
   }
 
+  public AuthRequest withTokenType(String tokenType) {
+    this.tokenType = tokenType;
+    return this;
+  }
+
   /**
    * Returns a URL representation of this request, appending the client ID and
    * scopes to the original authUrl.
@@ -65,7 +71,7 @@ public class AuthRequest {
     return new StringBuilder(authUrl)
         .append(authUrl.contains("?") ? "&" : "?")
         .append("client_id").append("=").append(urlCodex.encode(clientId))
-        .append("&").append("response_type").append("=").append("token")
+        .append("&").append("response_type").append("=").append(tokenType)
         .append("&").append("scope").append("=").append(scopesToString(urlCodex))
         .toString();
   }

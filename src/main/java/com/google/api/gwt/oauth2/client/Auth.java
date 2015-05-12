@@ -34,6 +34,8 @@ public abstract class Auth {
     return AuthImpl.INSTANCE;
   }
 
+  protected OAuthResponseParser responseParser;
+
   final TokenStore tokenStore;
   private final Clock clock;
   private final UrlCodex urlCodex;
@@ -77,14 +79,16 @@ public abstract class Auth {
    * @param req Request for authentication.
    * @param callback Callback to pass the token to when access has been granted.
    */
-  public void login(AuthRequest req, final Callback<String, Throwable> callback) {
+  public void login(AuthRequest req,  final OAuthResponseParser responseParser, final Callback<String, Throwable> callback) {
     lastRequest = req;
     lastCallback = callback;
+
+    this.responseParser = responseParser;
 
     String authUrl = req.toUrl(urlCodex) + "&redirect_uri=" + urlCodex.encode(oauthWindowUrl);
 
     // Try to look up the token we have stored.
-    final TokenInfo info = getToken(req);
+    final OAuthResponseParser.TokenInfo info = getToken(req);
     if (info == null || info.expires == null || expiringSoon(info)) {
       // Token wasn't found, or doesn't have an expiration, or is expired or
       // expiring soon. Requesting access will refresh the token.
@@ -102,11 +106,15 @@ public abstract class Auth {
     }
   }
 
+  public void login(AuthRequest req, final Callback<String, Throwable> callback) {
+    login(req, new DefaultResponseParser(clock), callback);
+  }
+
   /**
    * Returns whether or not the token will be expiring within the next ten
    * minutes.
    */
-  boolean expiringSoon(TokenInfo info) {
+  boolean expiringSoon(OAuthResponseParser.TokenInfo info) {
     // TODO(jasonhall): Consider varying the definition of "soon" based on the
     // original expires_in value (e.g., "soon" = 1/10th of the total time before
     // it's expired).
@@ -145,51 +153,13 @@ public abstract class Auth {
    */
   // This method is called via a global method defined in AuthImpl.register()
   @SuppressWarnings("unused")
-  void finish(String hash) {
-    TokenInfo info = new TokenInfo();
-    String error = null;
-    String errorDesc = "";
-    String errorUri = "";
+  void finish(String hash, String queryString) {
 
-    // Iterate over keys and values in the string hash value to find relevant
-    // information like the access token or an error message. The string will be
-    // in the form of: #key1=val1&key2=val2&key3=val3 (etc.)
-    int idx = 1;
-    while (idx < hash.length() - 1) {
-      // Grab the next key (between start and '=')
-      int nextEq = hash.indexOf('=', idx);
-      if (nextEq < 0) {
-        break;
-      }
-      String key = hash.substring(idx, nextEq);
+    OAuthResponseParser.TokenInfo info = responseParser.parseResponse(hash, queryString);
 
-      // Grab the next value (between '=' and '&')
-      int nextAmp = hash.indexOf('&', nextEq);
-      nextAmp = nextAmp < 0 ? hash.length() : nextAmp;
-      String val = hash.substring(nextEq + 1, nextAmp);
-
-      // Start looking from here from now on.
-      idx = nextAmp + 1;
-
-      // Store relevant values to be used later.
-      if (key.equals("access_token")) {
-        info.accessToken = val;
-      } else if (key.equals("expires_in")) {
-        // expires_in is seconds, convert to milliseconds and add to now
-        Double expiresIn = Double.valueOf(val) * 1000;
-        info.expires = String.valueOf(clock.now() + expiresIn);
-      } else if (key.equals("error")) {
-        error = val;
-      } else if (key.equals("error_description")) {
-        errorDesc = " (" + val + ")";
-      } else if (key.equals("error_uri")) {
-        errorUri = "; see: " + val;
-      }
-    }
-
-    if (error != null) {
+    if (info.error != null) {
       lastCallback.onFailure(
-          new RuntimeException("Error from provider: " + error + errorDesc + errorUri));
+          new RuntimeException("Error from provider: " + info.error + info.errorDesc + info.errorUri));
     } else if (info.accessToken == null) {
       lastCallback.onFailure(new RuntimeException("Could not find access_token in hash " + hash));
     } else {
@@ -219,12 +189,12 @@ public abstract class Auth {
     String decode(String url);
   }
 
-  TokenInfo getToken(AuthRequest req) {
+  OAuthResponseParser.TokenInfo getToken(AuthRequest req) {
     String tokenStr = tokenStore.get(req.asString());
-    return tokenStr != null ? TokenInfo.fromString(tokenStr) : null;
+    return tokenStr != null ? OAuthResponseParser.TokenInfo.fromString(tokenStr) : null;
   }
 
-  void setToken(AuthRequest req, TokenInfo info) {
+  void setToken(AuthRequest req, OAuthResponseParser.TokenInfo info) {
     tokenStore.set(req.asString(), info.asString());
   }
 
@@ -241,24 +211,6 @@ public abstract class Auth {
     tokenStore.clear();
   }
 
-  /** Encapsulates information an access token and when it will expire. */
-  static class TokenInfo {
-    String accessToken;
-    String expires;
-
-    String asString() {
-      return accessToken + "-----" + (expires == null ? "" : expires);
-    }
-
-    static TokenInfo fromString(String val) {
-      String[] parts = val.split("-----");
-      TokenInfo info = new TokenInfo();
-      info.accessToken = parts[0];
-      info.expires = parts.length > 1 ? parts[1] : null;
-      return info;
-    }
-  }
-
   /*
    * @param req The authentication request of which to request the expiration
    *        status.
@@ -268,123 +220,7 @@ public abstract class Auth {
   public double expiresIn(AuthRequest req) {
     String val = tokenStore.get(req.asString());
     return val == null ? Double.NEGATIVE_INFINITY :
-        Double.valueOf(TokenInfo.fromString(val).expires) - clock.now();
+        Double.valueOf(OAuthResponseParser.TokenInfo.fromString(val).expires) - clock.now();
   }
 
-  /**
-   * Exports a function to the page's global scope that can be called from regular JavaScript.
-   *
-   * <p>Usage (in JavaScript):</p>
-   * <code>
-   * oauth2.login({
-   *   "authUrl": "..." // the auth URL to use
-   *   "clientId": "..." // the client ID for this app
-   *   "scopes": ["...", "..."], // (optional) the scopes to request access to
-   *   "scopeDelimiter": "..." // (optional) the scope delimiter to use
-   * }, function(token) { // (optional) called on success, with the token
-   * }, function(error) { // (optional) called on error, with the error message
-   * });
-   * </code>
-   */
-  public static native void export() /*-{
-    if (!$wnd.oauth2) {
-      $wnd.oauth2 = {};
-    }
-    $wnd.oauth2.login = $entry(function(req, success, failure) {
-      @com.google.api.gwt.oauth2.client.Auth::nativeLogin(*)(req, success, failure);
-    });
-
-    $wnd.oauth2.expiresIn = $entry(function(req) {
-      return @com.google.api.gwt.oauth2.client.Auth::nativeExpiresIn(*)(req);
-    });
-
-    $wnd.oauth2.clearAllTokens = $entry(function() {
-      @com.google.api.gwt.oauth2.client.Auth::nativeClearAllTokens()();
-    });
-  }-*/;
-
-  private static void nativeLogin(AuthRequestJso req, JsFunction success, JsFunction failure) {
-    AuthImpl.INSTANCE.login(fromJso(req), CallbackWrapper.create(success, failure));
-  }
-
-  private static double nativeExpiresIn(AuthRequestJso req) {
-    return AuthImpl.INSTANCE.expiresIn(fromJso(req));
-  }
-
-  private static void nativeClearAllTokens() {
-    AuthImpl.INSTANCE.clearAllTokens();
-  }
-
-  private static AuthRequest fromJso(AuthRequestJso jso) {
-    return new AuthRequest(jso.getAuthUrl(), jso.getClientId())
-        .withScopes(jso.getScopes())
-        .withScopeDelimiter(jso.getScopeDelimiter());
-  }
-
-  private static final class AuthRequestJso extends JavaScriptObject {
-    protected AuthRequestJso() {
-    }
-
-    private final native String getAuthUrl() /*-{
-      return this.authUrl;
-    }-*/;
-
-    private final native String getClientId() /*-{
-      return this.clientId;
-    }-*/;
-
-    private final native JsArrayString getScopesNative() /*-{
-      return this.scopes || [];
-    }-*/;
-
-    private final String[] getScopes() {
-      JsArrayString jsa = getScopesNative();
-      String[] arr = new String[jsa.length()];
-      for (int i = 0; i < jsa.length(); i++) {
-        arr[i] = jsa.get(i);
-      }
-      return arr;
-    }
-
-    private final native String getScopeDelimiter() /*-{
-      return this.scopeDelimiter || " ";
-    }-*/;
-  }
-
-  private static final class JsFunction extends JavaScriptObject {
-    protected JsFunction() {
-    }
-
-    private final native void execute(String input) /*-{
-      this(input);
-    }-*/;
-  }
-
-  private static final class CallbackWrapper implements Callback<String, Throwable> {
-    private final JsFunction success;
-    private final JsFunction failure;
-
-    private CallbackWrapper(JsFunction success, JsFunction failure) {
-      this.success = success;
-      this.failure = failure;
-    }
-
-    private static CallbackWrapper create(JsFunction success, JsFunction failure) {
-      return new CallbackWrapper(success, failure);
-    }
-
-    @Override
-    public void onSuccess(String result) {
-      if (success != null) {
-        success.execute(result);
-      }
-    }
-
-    @Override
-    public void onFailure(Throwable reason) {
-      if (failure != null) {
-        failure.execute(reason.getMessage());
-      }
-    }
-  }
 }
