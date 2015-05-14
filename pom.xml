@@ -36,32 +36,12 @@
   <build>
     <plugins>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>gwt-maven-plugin</artifactId>
-        <version>${gwt.version}</version>
-        <configuration>
-          <logLevel>INFO</logLevel>
-          <runTarget>/</runTarget>
-          <style>OBF</style>
-          <port>8888</port>
-          <draftCompile>true</draftCompile>
-          <module>com.google.api.gwt.oauth2.OAuth2</module>
-          <extraJvmArgs>-Xmx256m</extraJvmArgs>
-          <mode>htmlunit</mode>
-        </configuration>
+        <artifactId>maven-source-plugin</artifactId>
         <executions>
           <execution>
-            <phase>compile</phase>
+            <phase>package</phase>
             <goals>
-              <goal>compile</goal>
-              <!--<goal>generateAsync</goal>-->
-            </goals>
-          </execution>
-          <!--run GWT tests-->
-          <execution>
-            <id>testit</id>
-            <goals>
-              <goal>test</goal>
+              <goal>jar-no-fork</goal>
             </goals>
           </execution>
         </executions>
