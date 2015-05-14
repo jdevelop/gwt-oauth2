@@ -37,7 +37,7 @@ class AuthImpl extends Auth {
   AuthImpl() {
     super(getTokenStore(), new RealClock(), new RealUrlCodex(), Scheduler.get(),
     // Default to use the bundled oauthWindow.html
-        GWT.getModuleBaseURL() + "com/google/api/gwt/resources/oauthWindow.html");
+        GWT.getModuleBaseURL() + "/oauthWindow.html");
     register();
   }
 

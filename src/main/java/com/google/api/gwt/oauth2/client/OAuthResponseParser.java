@@ -8,18 +8,18 @@ public interface OAuthResponseParser {
 
     /** Encapsulates information an access token and when it will expire. */
     class TokenInfo {
-        String accessToken;
-        String expires;
+        public String accessToken;
+        public String expires;
 
-        String error = null;
-        String errorDesc = "";
-        String errorUri = "";
+        public String error = null;
+        public String errorDesc = "";
+        public String errorUri = "";
 
-        String asString() {
+        public String asString() {
             return accessToken + "-----" + (expires == null ? "" : expires);
         }
 
-        static TokenInfo fromString(String val) {
+        public static TokenInfo fromString(String val) {
             String[] parts = val.split("-----");
             TokenInfo info = new TokenInfo();
             info.accessToken = parts[0];

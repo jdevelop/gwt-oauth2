@@ -4,7 +4,7 @@
 
   <groupId>com.google.api</groupId>
   <artifactId>gwt-oauth2</artifactId>
-  <version>0.2.1</version>
+  <version>0.2.2</version>
   <packaging>jar</packaging>
 
   <name>gwt-oauth2</name>

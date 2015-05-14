@@ -26,9 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static junit.framework.Assert.assertNotNull;
-import static junit.framework.TestCase.*;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 
 /**
  * Tests for {@link Auth}.
@@ -274,14 +272,14 @@ public class AuthTest {
     auth.finish("#access_token=foo&expires_in=10", "");
 
     MockClock.now += 1000; // Fast forward 1s
-    assertEquals(9000.0, auth.expiresIn(req));
+    assertEquals(9000.0, auth.expiresIn(req), 0.001d);
 
     MockClock.now += 10000; // Fast forward another 10s
-    assertEquals(-1000.0, auth.expiresIn(req));
+    assertEquals(-1000.0, auth.expiresIn(req), 0.001d);
 
     // A request that has no corresponding token expires in -1ms 
     AuthRequest newReq = new AuthRequest("another-url", "another-clientId").withScopes("scope");
-    assertEquals(Double.NEGATIVE_INFINITY, auth.expiresIn(newReq));
+    assertEquals(Double.NEGATIVE_INFINITY, auth.expiresIn(newReq), 0.001d);
   }
 
   private static class MockAuth extends Auth {
