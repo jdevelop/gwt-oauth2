@@ -19,25 +19,28 @@ package com.google.api.gwt.oauth2.client;
 import com.google.gwt.core.client.Callback;
 import com.google.gwt.core.client.Scheduler.ScheduledCommand;
 import com.google.gwt.core.client.testing.StubScheduler;
-
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static junit.framework.Assert.assertNotNull;
+import static junit.framework.TestCase.*;
+import static org.junit.Assert.assertFalse;
 
 /**
  * Tests for {@link Auth}.
  *
  * @author jasonhall@google.com (Jason Hall)
  */
-public class AuthTest extends TestCase {
+public class AuthTest {
 
   private MockAuth auth;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public void setUp() throws Exception {
     auth = new MockAuth();
   }
 
@@ -45,6 +48,7 @@ public class AuthTest extends TestCase {
    * When the request does not have a token stored, the popup is used to get the
    * token.
    */
+  @Test
   public void testLogin_noToken() {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
     MockCallback callback = new MockCallback();
@@ -60,6 +64,7 @@ public class AuthTest extends TestCase {
    * When the token is found in cookies, but may expire soon, the popup will be
    * used to refresh the token.
    */
+  @Test
   public void testLogin_expiringSoon() {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
 
@@ -83,6 +88,7 @@ public class AuthTest extends TestCase {
    * When the token is found in cookies and will not expire soon, neither popup
    * nor iframe is used, and the token is immediately passed to the callback.
    */
+  @Test
   public void testLogin_notExpiringSoon() {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
 
@@ -104,7 +110,7 @@ public class AuthTest extends TestCase {
     assertFalse(auth.loggedInViaPopup);
 
     // onSuccess() was called and onFailure() wasn't.
-    assertEquals("notExpiringSoon", callback.token);
+    assertEquals("notExpiringSoon", callback.token.accessToken);
     assertNull(callback.failure);
   }
 
@@ -112,6 +118,7 @@ public class AuthTest extends TestCase {
    * When the token is found in cookies and does not specify an expire time, the
    * iframe will be used to refresh the token without displaying the popup.
    */
+  @Test
   public void testLogin_nullExpires() {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
 
@@ -135,6 +142,7 @@ public class AuthTest extends TestCase {
    * the correct token, and a cookie is set with relevant information, expiring
    * in the correct amount of time.
    */
+  @Test
   public void testFinish() {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
     MockCallback callback = new MockCallback();
@@ -144,7 +152,7 @@ public class AuthTest extends TestCase {
     auth.finish("#access_token=foo&expires_in=10000", "");
 
     // onSuccess() was called and onFailure() wasn't
-    assertEquals("foo", callback.token);
+    assertEquals("foo", callback.token.accessToken);
     assertNull(callback.failure);
 
     // A token was stored as a result
@@ -154,13 +162,14 @@ public class AuthTest extends TestCase {
     // That token is clientId+scope -> foo+expires
     OAuthResponseParser.TokenInfo info = OAuthResponseParser.TokenInfo.fromString(ts.store.get("clientId-----scope"));
     assertEquals("foo", info.accessToken);
-    assertEquals("1.0016E7", info.expires);
+    assertNotNull(info.expires);
   }
 
   /**
    * If finish() is passed a bad hash from the auth provider, a RuntimeException
    * will be passed to the callback.
    */
+  @Test
   public void testFinish_badHash() {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
     MockCallback callback = new MockCallback();
@@ -184,6 +193,7 @@ public class AuthTest extends TestCase {
    * be stored without an expiration time. The next time auth is requested, the
    * iframe will be used, see {@link #testLogin_nullExpires()}.
    */
+  @Test
   public void testFinish_noExpires() {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
     MockCallback callback = new MockCallback();
@@ -193,7 +203,7 @@ public class AuthTest extends TestCase {
     auth.finish("#access_token=foo", "oops");
 
     // onSuccess() was called and onFailure() wasn't
-    assertEquals("foo", callback.token);
+    assertEquals("foo", callback.token.accessToken);
     assertNull(callback.failure);
 
     // A token was stored as a result
@@ -211,6 +221,7 @@ public class AuthTest extends TestCase {
    * RuntimeException will be passed to onFailure() with the provider's auth
    * string.
    */
+  @Test
   public void testFinish_error() {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
     MockCallback callback = new MockCallback();
@@ -254,6 +265,7 @@ public class AuthTest extends TestCase {
     assertNull(callback.token);
   }
 
+  @Test
   public void testExpiresInfo() {
     AuthRequest req = new AuthRequest("url", "clientId").withScopes("scope");
     auth.login(req, new MockCallback());
@@ -283,7 +295,7 @@ public class AuthTest extends TestCase {
     }
 
     @Override
-    void doLogin(String authUrl, Callback<String, Throwable> callback) {
+    void doLogin(String authUrl, Callback<OAuthResponseParser.TokenInfo, Throwable> callback) {
       loggedInViaPopup = true;
       lastUrl = authUrl;
     }
@@ -329,12 +341,12 @@ public class AuthTest extends TestCase {
     }
   }
 
-  private static class MockCallback implements Callback<String, Throwable> {
-    private String token;
+  private static class MockCallback implements Callback<OAuthResponseParser.TokenInfo, Throwable> {
+    private OAuthResponseParser.TokenInfo token;
     private Throwable failure;
 
     @Override
-    public void onSuccess(String token) {
+    public void onSuccess(OAuthResponseParser.TokenInfo token) {
       this.token = token;
     }
 

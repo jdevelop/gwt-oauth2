@@ -70,7 +70,7 @@ class AuthImpl extends Auth {
    * been granted access, by displaying a popup to the user.
    */
   @Override
-  void doLogin(String authUrl, Callback<String, Throwable> callback) {
+  void doLogin(String authUrl, Callback<OAuthResponseParser.TokenInfo, Throwable> callback) {
     if (window != null && window.isOpen()) {
       callback.onFailure(new IllegalStateException("Authentication in progress"));
     } else {

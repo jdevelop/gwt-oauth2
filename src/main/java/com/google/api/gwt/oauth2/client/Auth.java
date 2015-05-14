@@ -55,7 +55,7 @@ public abstract class Auth {
   }
 
   private AuthRequest lastRequest;
-  private Callback<String, Throwable> lastCallback;
+  private Callback<OAuthResponseParser.TokenInfo, Throwable> lastCallback;
 
   private static final double TEN_MINUTES = 10 * 60 * 1000;
 
@@ -79,7 +79,7 @@ public abstract class Auth {
    * @param req Request for authentication.
    * @param callback Callback to pass the token to when access has been granted.
    */
-  public void login(AuthRequest req,  final OAuthResponseParser responseParser, final Callback<String, Throwable> callback) {
+  public void login(AuthRequest req,  final OAuthResponseParser responseParser, final Callback<OAuthResponseParser.TokenInfo, Throwable> callback) {
     lastRequest = req;
     lastCallback = callback;
 
@@ -100,13 +100,13 @@ public abstract class Auth {
       scheduler.scheduleDeferred(new ScheduledCommand() {
         @Override
         public void execute() {
-          callback.onSuccess(info.accessToken);
+          callback.onSuccess(info);
         }
       });
     }
   }
 
-  public void login(AuthRequest req, final Callback<String, Throwable> callback) {
+  public void login(AuthRequest req, final Callback<OAuthResponseParser.TokenInfo, Throwable> callback) {
     login(req, new DefaultResponseParser(clock), callback);
   }
 
@@ -125,7 +125,7 @@ public abstract class Auth {
    * Get the OAuth 2.0 token for which this application may not have already
    * been granted access, by displaying a popup to the user.
    */
-  abstract void doLogin(String authUrl, Callback<String, Throwable> callback);
+  abstract void doLogin(String authUrl, Callback<OAuthResponseParser.TokenInfo, Throwable> callback);
 
   /**
    * Set the oauth window URL to use to authenticate.
@@ -164,7 +164,7 @@ public abstract class Auth {
       lastCallback.onFailure(new RuntimeException("Could not find access_token in hash " + hash));
     } else {
       setToken(lastRequest, info);
-      lastCallback.onSuccess(info.accessToken);
+      lastCallback.onSuccess(info);
     }
   }
 
